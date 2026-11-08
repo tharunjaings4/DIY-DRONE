@@ -1,0 +1,25 @@
+#include <Wire.h>
+
+int b;
+
+void setup()
+{
+  Serial.begin(9600);
+  Wire.begin();// 1st step [begin i2c communication]
+
+  Wire.beginTransmission(0x68);// 2nd step [select the hard ware ,sensor which are connected to A4 and A5 of arduino]
+  Wire.write(0x75);//3rd step [select the register and the lode the date to buffer]
+  Wire.endTransmission(false);//4th step [send the date and make it ready to read from this pirtcular sensor when we call it will lode the date to bus]
+
+  Wire.requestFrom(0x68, 1);//5th step [secelting the chicp and asking for the data]
+
+  if (Wire.available())//6th [chicking is te sensor is there ]
+  {
+    b = Wire.read();// 7th [getting the value from the sensor]
+    Serial.println(b, HEX);// hexa is for formatting and printing in hexa decimal
+  }
+}
+
+void loop()
+{
+}
