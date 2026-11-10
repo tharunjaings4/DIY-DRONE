@@ -1,0 +1,244 @@
+ 
+#include <Wire.h>
+
+//----------------imu----start--------------------------------Imu
+#include <MPU6500_WE.h>
+#define MPU_ADDR 0x68
+MPU6500_WE imu = MPU6500_WE(MPU_ADDR);
+float ax,ay,az;
+float gx,gy,gz;
+float imu_temp;
+//---------------imu------end--------------------------------Imu
+
+//-----------------------imu_filter---start---------------------filter
+float fax,fay,faz;
+float fgx,fgy,fgz;
+float anoise=0.005;//max amplitude of noise acc
+float gnoise=0.5;//max amplitude of noise gyro
+int cax=0,cay=0,caz=0,cgx=0,cgy=0,cgz=0;// counter to count is the measurment is keep on decreasing or increasing continusly
+//-----------------------imu_filter---end-----------------------filter
+
+
+
+void setup()
+{
+    Serial.begin(115200);
+    Wire.begin();
+//---------------imu------start------------------------------------Imu
+
+    if (!imu.init())
+    {
+        Serial.println("MPU6500 NOT FOUND!");
+        while (1);
+    }
+
+    Serial.println("MPU6500 CONNECTED");
+
+    // Keep the sensor flat and completely still
+    Serial.println("Calibration starting...");
+    Serial.println("Keep the sensor FLAT and STILL!");
+
+    delay(2000);
+
+    Serial.println("Calibration complete!");
+
+    // Set measurement ranges AFTER calibration
+    imu.setAccRange(MPU6500_ACC_RANGE_2G);
+    imu.setGyrRange(MPU6500_GYRO_RANGE_250);
+
+    // Calibrate accelerometer and gyroscope
+    imu.autoOffsets();
+
+
+    Serial.println("Starting readings...");
+//---------------imu------end---------------------------------------------Imu
+
+//-----------------------imu_filter---start---------------------filter
+    xyzFloat acc = imu.getGValues();
+    xyzFloat gyro = imu.getGyrValues();
+    imu_temp = imu.getTemperature();
+    fax=acc.x;
+    fay=acc.y;
+    faz=acc.z;
+    fgx=gyro.x;
+    fgy=gyro.y;
+    fgz=gyro.z;
+//-----------------------imu_filter---end---------------------filter
+
+}
+
+void loop()
+{
+//---------------imu------start---------------------------------------------Imu
+    imuFilter();
+
+
+    Serial.print("Filtered | ");
+    
+    Serial.print("AX = ");
+    Serial.print(fax, 3);
+
+    Serial.print(" | AY = ");
+    Serial.print(fay, 3);
+
+    Serial.print(" | AZ = ");
+    Serial.print(faz, 3);
+
+    Serial.print(" | GX = ");
+    Serial.print(fgx, 3);
+
+    Serial.print(" | GY = ");
+    Serial.print(fgy, 3);
+
+    Serial.print(" | GZ = ");
+    Serial.print(fgz, 3);
+
+    Serial.print(" | TEMP = ");
+    Serial.println(imu_temp, 2);
+
+    Serial.print("Raw | ");
+
+    Serial.print("AX = ");
+    Serial.print(ax, 3);
+
+    Serial.print(" | AY = ");
+    Serial.print(ay, 3);
+
+    Serial.print(" | AZ = ");
+    Serial.print(az, 3);
+
+    Serial.print(" | GX = ");
+    Serial.print(gx, 3);
+
+    Serial.print(" | GY = ");
+    Serial.print(gy, 3);
+
+    Serial.print(" | GZ = ");
+    Serial.print(gz, 3);
+
+    Serial.print(" | TEMP = ");
+    Serial.println(imu_temp, 2);
+
+
+    delay(100);
+}
+
+//-------------filter function---start----------------------IMU_filter
+    
+void imuFilter() {
+
+    xyzFloat acc = imu.getGValues();
+    xyzFloat gyro = imu.getGyrValues();
+
+    imu_temp = imu.getTemperature();
+
+    ax = acc.x;
+    ay = acc.y;
+    az = acc.z;
+
+    gx = gyro.x;
+    gy = gyro.y;
+    gz = gyro.z;
+
+
+    /*-----------------ax-------------
+    if (    !    ((fax-anoise<=ax) && (ax<=fax+anoise)))
+    {
+      cax++;
+      if (cax>5){
+        cax=5;// so that at the end if the drone is actually moving c will keep increasing so i wanted at the end filter data sould consist of both data 50%
+      }
+      fax=((100-(cax*10))*fax + (cax*10)*ax)/100.0;// if ax is keep on increasing data shere is gumping by 10 % every time
+    }
+    else{
+      cax=0;// i wanted c reset to 0 , i wanted only c affect the % share of data when the reading is real ,when it is continusly increasing or decreasing
+    }
+
+    // when you dont understand code >>debugging
+
+    if (((fax-anoise<=ax) && (ax<=ax+anoise))){
+      fax=fax;//no chainge
+      c=0;
+    }
+    else{
+      c++;
+      if (c>5){
+        c=5;
+        fax=(100-(c*10))*fax + (c*10)*ax;
+
+      }
+
+    }*/
+
+
+
+    // ---------- AX ----------
+    if (!((fax - anoise <= ax) && (ax <= fax + anoise))) {
+        cax++;
+        if (cax > 5) cax = 5;
+
+        fax = ((100 - cax * 10) * fax + (cax * 10) * ax) / 100.0;
+    }
+    else {
+        cax = 0;
+    }
+
+    // ---------- AY ----------
+    if (!((fay - anoise <= ay) && (ay <= fay + anoise))) {
+        cay++;
+        if (cay > 5) cay = 5;
+
+        fay = ((100 - cay * 10) * fay + (cay * 10) * ay) / 100.0;
+    }
+    else {
+        cay = 0;
+    }
+
+    // ---------- AZ ----------
+    if (!((faz - anoise <= az) && (az <= faz + anoise))) {
+        caz++;
+        if (caz > 5) caz = 5;
+
+        faz = ((100 - caz * 10) * faz + (caz * 10) * az) / 100.0;
+    }
+    else {
+        caz = 0;
+    }
+
+    // ---------- GX ----------
+    if (!((fgx - gnoise <= gx) && (gx <= fgx + gnoise))) {
+        cgx++;
+        if (cgx > 5) cgx = 5;
+
+        fgx = ((100 - cgx * 10) * fgx + (cgx * 10) * gx) / 100.0;
+    }
+    else {
+        cgx = 0;
+    }
+
+    // ---------- GY ----------
+    if (!((fgy - gnoise <= gy) && (gy <= fgy + gnoise))) {
+        cgy++;
+        if (cgy > 5) cgy = 5;
+
+        fgy = ((100 - cgy * 10) * fgy + (cgy * 10) * gy) / 100.0;
+    }
+    else {
+        cgy = 0;
+    }
+
+    // ---------- GZ ----------
+    if (!((fgz - gnoise <= gz) && (gz <= fgz + gnoise))) {
+        cgz++;
+        if (cgz > 5) cgz = 5;
+
+        fgz = ((100 - cgz * 10) * fgz + (cgz * 10) * gz) / 100.0;
+    }
+    else {
+        cgz = 0;
+    }
+}
+
+
+
+   
