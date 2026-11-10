@@ -1,0 +1,20 @@
+struct Gyroscope {  // Structure definition
+    float x;
+    float y;
+    float z;
+};
+
+Gyroscope gyro;     // Structure variable
+
+gyro.x = 10.5;     // Dot operator
+
+
+//--------------------------examples----------------------------
+
+
+struct IMU {
+    float ax, ay, az;
+    float gx, gy, gz;
+};
+
+IMU sensor;
