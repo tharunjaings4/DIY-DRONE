@@ -1,0 +1,259 @@
+//--------------core logic and text message----------------
+ 
+ // ---------- GZ ----------
+    if (!((fgz - gnoise <= gz) && (gz <= fgz + gnoise))) 
+    {
+      fgz=(10*fgz + 80*gz)/100.0;   // if data is reading out of the limits or boundary that i asume as a real value so that noise is just veary low 
+    }
+    else {
+      fgz=(80*fgz + 20*gz)/100.0;// if data is reading in the limit i trust 80% previous value and 20% reading value [imp role if thae data stucks at 0.563 it will stuck ther if the chainge is not enough in the main if condition]
+      if (-gnoise<fgz && fgz<gnoise)// if data is in the range of noise like arounf +- 0.5(the gnoise) i wnat that to settle to 0 rather than oscillating 
+      {
+        fgz=0;
+      }
+    }
+}
+
+
+
+
+//---------------------------------------full all axis code----------------------------------------------
+
+ 
+#include <Wire.h>
+
+//----------------imu----start--------------------------------Imu
+#include <MPU6500_WE.h>
+#define MPU_ADDR 0x68
+MPU6500_WE imu = MPU6500_WE(MPU_ADDR);
+float ax,ay,az;
+float gx,gy,gz;
+float imu_temp;
+//---------------imu------end--------------------------------Imu
+
+//-----------------------imu_filter---start---------------------filter
+float fax,fay,faz;
+float fgx,fgy,fgz;
+float anoise=0.005;//max amplitude of noise acc
+float gnoise=0.5;//max amplitude of noise gyro
+int cax=0,cay=0,caz=0,cgx=0,cgy=0,cgz=0;// counter to count is the measurment is keep on decreasing or increasing continusly
+//-----------------------imu_filter---end-----------------------filter
+
+
+
+void setup()
+{
+    Serial.begin(115200);
+    Wire.begin();
+//---------------imu------start------------------------------------Imu
+
+    if (!imu.init())
+    {
+        Serial.println("MPU6500 NOT FOUND!");
+        while (1);
+    }
+
+    Serial.println("MPU6500 CONNECTED");
+
+    // Keep the sensor flat and completely still
+    Serial.println("Calibration starting...");
+    Serial.println("Keep the sensor FLAT and STILL!");
+
+    delay(2000);
+
+    Serial.println("Calibration complete!");
+
+    // Set measurement ranges AFTER calibration
+    imu.setAccRange(MPU6500_ACC_RANGE_2G);
+    imu.setGyrRange(MPU6500_GYRO_RANGE_250);
+
+    // Calibrate accelerometer and gyroscope
+    imu.autoOffsets();
+
+
+    Serial.println("Starting readings...");
+//---------------imu------end---------------------------------------------Imu
+
+//-----------------------imu_filter---start---------------------filter
+    xyzFloat acc = imu.getGValues();
+    xyzFloat gyro = imu.getGyrValues();
+    imu_temp = imu.getTemperature();
+    fax=acc.x;
+    fay=acc.y;
+    faz=acc.z;
+    fgx=gyro.x;
+    fgy=gyro.y;
+    fgz=gyro.z;
+//-----------------------imu_filter---end---------------------filter
+
+}
+
+void loop()
+{
+//---------------imu------start---------------------------------------------Imu
+    imuFilter();
+
+
+    Serial.print("Filtered | ");
+    
+    Serial.print("AX = ");
+    Serial.print(fax, 3);
+
+    Serial.print(" | AY = ");
+    Serial.print(fay, 3);
+
+    Serial.print(" | AZ = ");
+    Serial.print(faz, 3);
+
+    Serial.print(" | GX = ");
+    Serial.print(fgx, 3);
+
+    Serial.print(" | GY = ");
+    Serial.print(fgy, 3);
+
+    Serial.print(" | GZ = ");
+    Serial.print(fgz, 3);
+
+    Serial.print(" | TEMP = ");
+    Serial.println(imu_temp, 2);
+
+    Serial.print("Raw | ");
+
+    Serial.print("AX = ");
+    Serial.print(ax, 3);
+
+    Serial.print(" | AY = ");
+    Serial.print(ay, 3);
+
+    Serial.print(" | AZ = ");
+    Serial.print(az, 3);
+
+    Serial.print(" | GX = ");
+    Serial.print(gx, 3);
+
+    Serial.print(" | GY = ");
+    Serial.print(gy, 3);
+
+    Serial.print(" | GZ = ");
+    Serial.print(gz, 3);
+
+    Serial.print(" | TEMP = ");
+    Serial.println(imu_temp, 2);
+
+
+    delay(150);
+}
+
+//-------------filter function---start----------------------IMU_filter
+    
+
+
+void imuFilter()
+{
+    xyzFloat acc = imu.getGValues();
+    xyzFloat gyro = imu.getGyrValues();
+
+    imu_temp = imu.getTemperature();
+
+    ax = acc.x;
+    ay = acc.y;
+    az = acc.z;
+
+    gx = gyro.x;
+    gy = gyro.y;
+    gz = gyro.z;
+
+    // ---------------- ACCELEROMETER ----------------
+
+    // AX
+    if (!((fax - anoise <= ax) && (ax <= fax + anoise)))
+    {
+        fax = (20.0 * fax + 80.0 * ax) / 100.0;
+    }
+    else
+    {
+        fax = (80.0 * fax + 20.0 * ax) / 100.0;
+
+        if ((-anoise < fax) && (fax < anoise))
+        {
+            fax = 0.0;
+        }
+    }
+
+    // AY
+    if (!((fay - anoise <= ay) && (ay <= fay + anoise)))
+    {
+        fay = (20.0 * fay + 80.0 * ay) / 100.0;
+    }
+    else
+    {
+        fay = (80.0 * fay + 20.0 * ay) / 100.0;
+
+        if ((-anoise < fay) && (fay < anoise))
+        {
+            fay = 0.0;
+        }
+    }
+
+    // AZ
+    if (!((faz - anoise <= az) && (az <= faz + anoise)))
+    {
+        faz = (20.0 * faz + 80.0 * az) / 100.0;
+    }
+    else
+    {
+        faz = (80.0 * faz + 20.0 * az) / 100.0;
+
+        if ((-anoise < faz) && (faz < anoise))
+        {
+            faz = 0.0;
+        }
+    }
+
+    // ---------------- GYROSCOPE ----------------
+
+    // GX
+    if (!((fgx - gnoise <= gx) && (gx <= fgx + gnoise)))
+    {
+        fgx = (20.0 * fgx + 80.0 * gx) / 100.0;
+    }
+    else
+    {
+        fgx = (80.0 * fgx + 20.0 * gx) / 100.0;
+
+        if ((-gnoise < fgx) && (fgx < gnoise))
+        {
+            fgx = 0.0;
+        }
+    }
+
+    // GY
+    if (!((fgy - gnoise <= gy) && (gy <= fgy + gnoise)))
+    {
+        fgy = (20.0 * fgy + 80.0 * gy) / 100.0;
+    }
+    else
+    {
+        fgy = (80.0 * fgy + 20.0 * gy) / 100.0;
+
+        if ((-gnoise < fgy) && (fgy < gnoise))
+        {
+            fgy = 0.0;
+        }
+    }
+
+    // GZ
+    if (!((fgz - gnoise <= gz) && (gz <= fgz + gnoise)))
+    {
+        fgz = (20.0 * fgz + 80.0 * gz) / 100.0;
+    }
+    else
+    {
+        fgz = (80.0 * fgz + 20.0 * gz) / 100.0;
+
+        if ((-gnoise < fgz) && (fgz < gnoise))
+        {
+            fgz = 0.0;
+        }
+    }
+}
